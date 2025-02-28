@@ -1,3 +1,4 @@
+// services/tiktok.js
 const { default: axios } = require('axios');
 const fetch = require('node-fetch');
 const asyncRetry = require('async-retry');
@@ -58,15 +59,22 @@ exports.downloadTikTok = async (url) => {
     const cleanedUrl = url.replace("https://vm", "https://vt");
     const response = await axios.head(cleanedUrl);
     const videoId = response.request.res.responseUrl.match(/\d{17,21}/)?.[0];
-``
+
     if (!videoId) throw new Error('Invalid TikTok URL');
 
     const data = await asyncRetry(async () => {
-      const res = await fetch(_tiktokapi(new URLSearchParams(withParams({ aweme_id: videoId })), {
-        headers: {
-          "User-Agent": "com.ss.android.ugc.trill/494+Mozilla/5.0+(Linux;+Android+12;+2112123G+Build/SKQ1.211006.001;+wv)+AppleWebKit/537.36+(KHTML,+like+Gecko)+Version/4.0+Chrome/107.0.5304.105+Mobile+Safari/537.36"
+      const res = await fetch(
+        _tiktokapi(
+          new URLSearchParams(
+            withParams({ aweme_id: videoId })
+          ).toString()
+        ), 
+        {
+          headers: {
+            "User-Agent": "com.ss.android.ugc.trill/494+Mozilla/5.0+(Linux;+Android+12;+2112123G+Build/SKQ1.211006.001;+wv)+AppleWebKit/537.36+(KHTML,+like+Gecko)+Version/4.0+Chrome/107.0.5304.105+Mobile+Safari/537.36"
+          }
         }
-      });
+      );
       return parseTiktokData(await res.json());
     }, { retries: 3 });
 
