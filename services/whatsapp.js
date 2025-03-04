@@ -7,14 +7,18 @@ const { encryptFile } = require('../utils/security');
 const fs = require('fs').promises;
 const path = require('path');
 
-exports.initWhatsAppBot = () => {
-  const client = new Client({
-    puppeteer: {
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    },
-    session: JSON.parse(process.env.WA_SESSION || 'null')
-  });
+const client = new Client({
+  puppeteer: {
+    headless: true,
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--single-process'
+    ],
+    executablePath: process.env.CHROMIUM_PATH || '/usr/bin/chromium-browser'
+  }
+});
 
   client.on('qr', qr => qrcode.generate(qr, { small: true }));
   
