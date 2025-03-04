@@ -1,22 +1,35 @@
 const ffmpeg = require('fluent-ffmpeg');
-const { randomBytes } = require('crypto');
+const crypto = require('crypto');
+const path = require('path');
+const fs = require('fs').promises;
 
-exports.processVideo = (inputPath) => {
-  return new Promise((resolve, reject) => {
-    const outputPath = `temp/${randomBytes(8).toString('hex')}_processed.mp4`;
-    
-    ffmpeg(inputPath)
-      .outputOptions([
-        '-metadata', `title=UGC_${Date.now()}`,
-        '-metadata', 'software=FilmoraPro',
-        '-metadata', 'artist=User Generated Content',
-        '-map_metadata', '-1',
-        '-vf', 'noise=alls=20:allf=t',
-        '-c:v', 'libx264',
-        '-preset', 'fast'
-      ])
-      .on('end', () => resolve(outputPath))
-      .on('error', reject)
-      .save(outputPath);
-  });
+exports.processMetadata = (inputPath) => new Promise((resolve, reject) => {
+  const outputFile = `processed_${crypto.randomBytes(4).toString('hex')}.mp4`;
+  const outputPath = path.join('temp', outputFile);
+
+  ffmpeg(inputPath)
+    .outputOptions([
+      '-metadata', 'title=User Generated Content',
+      '-metadata', 'artist=TikTok User',
+      '-metadata', 'compatible_brands=mp42',
+      '-metadata', 'creation_time=' + new Date().toISOString(),
+      '-map_metadata', '-1',
+      '-vf', 'noise=alls=20:allf=t',
+      '-c:v', 'libx264',
+      '-preset', 'fast',
+      '-crf', '23'
+    ])
+    .on('end', () => resolve(outputPath))
+    .on('error', reject)
+    .save(outputPath);
+});
+
+exports.cleanupFiles = async (files) => {
+  await Promise.all(
+    files.map(async file => {
+      if (await fs.stat(file).catch(() => null)) {
+        await fs.unlink(file);
+      }
+    })
+  );
 };

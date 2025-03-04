@@ -1,48 +1,66 @@
 const { Client } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const { downloadTikTok } = require('./tiktok');
-const { processVideo } = require('../utils/metadata');
 const { uploadToReels } = require('./facebook');
-const { cleanup, encryptFile } = require('../utils/security');
+const { processMetadata, cleanupFiles } = require('../utils/metadata');
+const { encryptFile } = require('../utils/security');
+const fs = require('fs').promises;
+const path = require('path');
 
 exports.initWhatsAppBot = () => {
   const client = new Client({
     puppeteer: {
       headless: true,
-      args: ['--no-sandbox']
-    }
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    },
+    session: JSON.parse(process.env.WA_SESSION || 'null')
   });
 
   client.on('qr', qr => qrcode.generate(qr, { small: true }));
-
+  
   client.on('authenticated', session => {
-    console.log('WhatsApp authenticated!');
+    fs.writeFile('.wwebjs_auth', JSON.stringify(session));
+    console.log('✅ Autentikasi berhasil!');
   });
 
-  client.on('ready', () => console.log('WhatsApp client ready!'));
+  client.on('ready', () => {
+    console.log('🤖 Bot siap digunakan!');
+    fs.mkdir('temp', { recursive: true });
+  });
 
   client.on('message', async msg => {
+    if (!msg.body.startsWith('!s ')) return;
+
     try {
-      if (msg.body.startsWith('!s ')) {
-        const url = msg.body.split(' ')[1];
-        const downloadResult = await downloadTikTok(url);
-        
-        if (!downloadResult.success) {
-          return msg.reply(`❌ Error: ${downloadResult.error}`);
-        }
+      const [_, url] = msg.body.split(' ');
+      
+      // Step 1: Download TikTok
+      const { success: dlSuccess, data: dlData, error: dlError } = await downloadTikTok(url);
+      if (!dlSuccess) return msg.reply(`❌ Download gagal: ${dlError}`);
+      
+      // Step 2: Process Metadata
+      const processedPath = await processMetadata(dlData.videoUrl);
+      
+      // Step 3: Upload to Facebook
+      const { success: upSuccess, data: upData, error: upError } = await uploadToReels(
+        processedPath,
+        dlData.description
+      );
+      
+      // Step 4: Cleanup
+      await cleanupFiles([processedPath]);
+      await encryptFile(processedPath);
 
-        const processedPath = await processVideo(downloadResult.data.url);
-        const uploadResult = await uploadToReels(processedPath, downloadResult.data.description);
-        
-        encryptFile(processedPath);
-        fs.unlinkSync(processedPath);
+      // Send Result
+      const message = upSuccess
+        ? `✅ Berhasil upload!\nID: ${upData.id}\nDurasi: ${dlData.duration}s`
+        : `❌ Upload gagal: ${upError}`;
+      
+      msg.reply(message);
 
-        uploadResult.success 
-          ? msg.reply('✅ Uploaded successfully!') 
-          : msg.reply(`❌ Upload failed: ${uploadResult.error}`);
-      }
     } catch (error) {
-      msg.reply(`⚠️ System error: ${error.message}`);
+      console.error('Error:', error);
+      msg.reply('⚠️ Terjadi kesalahan sistem');
     }
   });
 
