@@ -7,29 +7,27 @@ const { encryptFile } = require('../utils/security');
 const fs = require('fs').promises;
 const path = require('path');
 
-const client = new Client({
-  puppeteer: {
-    headless: true,
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--single-process'
-    ],
-    executablePath: process.env.CHROMIUM_PATH || '/usr/bin/chromium-browser'
-  }
-});
+exports.initWhatsAppBot = () => {
+  const client = new Client({
+    puppeteer: {
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--single-process',
+        '--no-zygote'
+      ],
+      executablePath: process.env.CHROMIUM_PATH || '/usr/bin/chromium-browser'
+    },
+    session: JSON.parse(process.env.WA_SESSION || 'null')
+  });
 
   client.on('qr', qr => qrcode.generate(qr, { small: true }));
   
   client.on('authenticated', async (session) => {
     try {
-      if (!session) {
-        throw new Error('Session object is undefined');
-      }
-      
-      const sessionData = JSON.stringify(session);
-      await fs.writeFile('.wwebjs_auth', sessionData);
+      await fs.writeFile('.wwebjs_auth', JSON.stringify(session));
       console.log('✅ Session saved successfully!');
     } catch (error) {
       console.error('❌ Error saving session:', error.message);
@@ -47,24 +45,24 @@ const client = new Client({
     try {
       const [_, url] = msg.body.split(' ');
       
-      // Step 1: Download TikTok
+      // Download TikTok
       const { success: dlSuccess, data: dlData, error: dlError } = await downloadTikTok(url);
       if (!dlSuccess) return msg.reply(`❌ Download gagal: ${dlError}`);
       
-      // Step 2: Process Metadata
+      // Process Metadata
       const processedPath = await processMetadata(dlData.videoUrl);
       
-      // Step 3: Upload to Facebook
+      // Upload ke Facebook
       const { success: upSuccess, data: upData, error: upError } = await uploadToReels(
         processedPath,
         dlData.description
       );
       
-      // Step 4: Cleanup
+      // Cleanup
       await cleanupFiles([processedPath]);
       await encryptFile(processedPath);
 
-      // Send Result
+      // Kirim Hasil
       const message = upSuccess
         ? `✅ Berhasil upload!\nID: ${upData.id}\nDurasi: ${dlData.duration}s`
         : `❌ Upload gagal: ${upError}`;
