@@ -11,7 +11,17 @@ exports.initWhatsAppBot = () => {
   const client = new Client({
     puppeteer: {
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--single-process',
+        '--disable-gpu',
+        '--no-zygote'
+      ],
+      executablePath: process.env.CHROME_BIN || '/usr/bin/chromium-browser'
     },
     session: JSON.parse(process.env.WA_SESSION || 'null')
   });
@@ -20,12 +30,7 @@ exports.initWhatsAppBot = () => {
   
   client.on('authenticated', async (session) => {
     try {
-      if (!session) {
-        throw new Error('Session object is undefined');
-      }
-      
-      const sessionData = JSON.stringify(session);
-      await fs.writeFile('.wwebjs_auth', sessionData);
+      await fs.writeFile('.wwebjs_auth', JSON.stringify(session));
       console.log('✅ Session saved successfully!');
     } catch (error) {
       console.error('❌ Error saving session:', error.message);
@@ -33,7 +38,7 @@ exports.initWhatsAppBot = () => {
   });
 
   client.on('ready', () => {
-    console.log('🤖 Bot siap digunakan!');
+    console.log('🤖 Bot ready!');
     fs.mkdir('temp', { recursive: true });
   });
 
@@ -43,33 +48,31 @@ exports.initWhatsAppBot = () => {
     try {
       const [_, url] = msg.body.split(' ');
       
-      // Step 1: Download TikTok
+      // Download TikTok
       const { success: dlSuccess, data: dlData, error: dlError } = await downloadTikTok(url);
-      if (!dlSuccess) return msg.reply(`❌ Download gagal: ${dlError}`);
+      if (!dlSuccess) return msg.reply(`❌ Download failed: ${dlError}`);
       
-      // Step 2: Process Metadata
+      // Process video
       const processedPath = await processMetadata(dlData.videoUrl);
       
-      // Step 3: Upload to Facebook
+      // Upload to Facebook
       const { success: upSuccess, data: upData, error: upError } = await uploadToReels(
         processedPath,
         dlData.description
       );
       
-      // Step 4: Cleanup
+      // Cleanup
       await cleanupFiles([processedPath]);
       await encryptFile(processedPath);
 
-      // Send Result
-      const message = upSuccess
-        ? `✅ Berhasil upload!\nID: ${upData.id}\nDurasi: ${dlData.duration}s`
-        : `❌ Upload gagal: ${upError}`;
-      
-      msg.reply(message);
+      msg.reply(upSuccess 
+        ? `✅ Upload successful!\nID: ${upData.id}`
+        : `❌ Upload failed: ${upError}`
+      );
 
     } catch (error) {
       console.error('Error:', error);
-      msg.reply('⚠️ Terjadi kesalahan sistem');
+      msg.reply('⚠️ System error');
     }
   });
 
