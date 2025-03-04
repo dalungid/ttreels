@@ -18,9 +18,18 @@ exports.initWhatsAppBot = () => {
 
   client.on('qr', qr => qrcode.generate(qr, { small: true }));
   
-  client.on('authenticated', session => {
-    fs.writeFile('.wwebjs_auth', JSON.stringify(session));
-    console.log('✅ Autentikasi berhasil!');
+  client.on('authenticated', async (session) => {
+    try {
+      if (!session) {
+        throw new Error('Session object is undefined');
+      }
+      
+      const sessionData = JSON.stringify(session);
+      await fs.writeFile('.wwebjs_auth', sessionData);
+      console.log('✅ Session saved successfully!');
+    } catch (error) {
+      console.error('❌ Error saving session:', error.message);
+    }
   });
 
   client.on('ready', () => {
