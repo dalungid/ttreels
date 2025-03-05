@@ -5,7 +5,7 @@ const { cleanup } = require('./utils/security');
 const client = initWhatsAppBot();
 
 process.on('SIGINT', async () => {
-  console.log('\n🛑 Menghentikan bot...');
+  console.log('\n🔧 Cleaning up resources...');
   await cleanup();
   await client.destroy();
   process.exit();
