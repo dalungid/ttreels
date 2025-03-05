@@ -1,35 +1,22 @@
 const ffmpeg = require('fluent-ffmpeg');
-const crypto = require('crypto');
 const path = require('path');
-const fs = require('fs').promises;
+const { randomBytes } = require('crypto');
 
-exports.processMetadata = (inputPath) => new Promise((resolve, reject) => {
-  const outputFile = `processed_${crypto.randomBytes(4).toString('hex')}.mp4`;
-  const outputPath = path.join('temp', outputFile);
-
+const processMetadata = (inputPath) => new Promise((resolve, reject) => {
+  const outputPath = path.join('temp', `processed_${randomBytes(4).toString('hex')}.mp4`);
+  
   ffmpeg(inputPath)
     .outputOptions([
       '-metadata', 'title=User Generated Content',
       '-metadata', 'artist=TikTok User',
-      '-metadata', 'compatible_brands=mp42',
-      '-metadata', 'creation_time=' + new Date().toISOString(),
+      '-metadata', 'comment=Created with Filmora',
       '-map_metadata', '-1',
-      '-vf', 'noise=alls=20:allf=t',
-      '-c:v', 'libx264',
-      '-preset', 'fast',
-      '-crf', '23'
+      '-c:v', 'copy',
+      '-c:a', 'copy'
     ])
     .on('end', () => resolve(outputPath))
     .on('error', reject)
     .save(outputPath);
 });
 
-exports.cleanupFiles = async (files) => {
-  await Promise.all(
-    files.map(async file => {
-      if (await fs.stat(file).catch(() => null)) {
-        await fs.unlink(file);
-      }
-    })
-  );
-};
+module.exports = { processMetadata };
