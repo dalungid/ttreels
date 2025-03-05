@@ -23,8 +23,22 @@ const initWhatsAppBot = () => {
   client.on('qr', qr => qrcode.generate(qr, { small: true }));
 
   client.on('authenticated', async (session) => {
-    await fs.writeFile('.wwebjs_auth', JSON.stringify(session));
-    console.log('✅ Authentication successful!');
+    try {
+      if (!session) {
+        console.warn('⚠️ No session data received');
+        return;
+      }
+      
+      const sessionData = JSON.stringify(session);
+      if (!sessionData) {
+        throw new Error('Invalid session data format');
+      }
+      
+      await fs.writeFile('.wwebjs_auth', sessionData);
+      console.log('🔐 Session saved successfully!');
+    } catch (error) {
+      console.error('❌ Session save error:', error.message);
+    }
   });
 
   client.on('ready', () => {
