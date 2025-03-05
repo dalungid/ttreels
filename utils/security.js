@@ -1,31 +1,27 @@
 const crypto = require('crypto');
 const fs = require('fs').promises;
-const path = require('path');
 const CryptoJS = require('crypto-js');
 
-exports.encryptFile = async (filePath) => {
-  try {
-    const data = await fs.readFile(filePath);
-    const encrypted = CryptoJS.AES.encrypt(
-      data.toString('base64'),
-      process.env.ENCRYPTION_KEY
-    ).toString();
-    await fs.writeFile(filePath, encrypted);
-  } catch (error) {
-    console.error('Encryption error:', error);
-  }
+const encryptFile = async (filePath) => {
+  const data = await fs.readFile(filePath);
+  const encrypted = CryptoJS.AES.encrypt(
+    data.toString('base64'), 
+    process.env.ENCRYPTION_KEY
+  ).toString();
+  await fs.writeFile(filePath, encrypted);
 };
 
-exports.cleanup = async () => {
-  const tempDir = path.join(__dirname, '../temp');
+const cleanup = async () => {
   try {
-    const files = await fs.readdir(tempDir);
+    const files = await fs.readdir('temp');
     await Promise.all(files.map(async file => {
-      const filePath = path.join(tempDir, file);
-      await this.encryptFile(filePath);
+      const filePath = path.join('temp', file);
+      await encryptFile(filePath);
       await fs.unlink(filePath);
     }));
   } catch (error) {
-    if (error.code !== 'ENOENT') throw error;
+    if(error.code !== 'ENOENT') throw error;
   }
 };
+
+module.exports = { encryptFile, cleanup };
